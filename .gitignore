@@ -3,7 +3,8 @@ node_modules/
 .env.*
 !.env.example
 *.log
-data/
+data/*.sqlite*
+public/data/*.sqlite*
 .tools/
 outputs/
 *.inspect.ndjson
