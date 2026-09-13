@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#173c35">
+  <title>Dashboard · Durgawati Mahavidyalaya</title>
+  <link rel="icon" type="image/png" href="./images/college-logo.png">
+  <link rel="stylesheet" href="./css/session.css">
+  <link rel="stylesheet" href="./css/styles.css">
+  <link rel="stylesheet" href="./css/students.css">
+  <link rel="stylesheet" href="./css/ui-polish.css">
+  <link rel="stylesheet" href="./css/certificate.css">
+  <script type="module" src="./js/app.js"></script>
+</head>
+<body class="session-checking">
+  <a class="skip-link" href="#main">Skip to content</a>
+  <aside class="sidebar" id="sidebar">
+    <a class="brand" href="#dashboard"><img class="brand-logo" src="./images/college-logo.png" alt="Durgawati Mahavidyalaya Logo"><span>Durgawati<span class="brand-sub">MAHAVIDYALAYA</span></span></a>
+    <div class="workspace-label">COLLEGE ADMINISTRATION</div>
+    <nav aria-label="Main navigation">
+      <a href="#dashboard" data-page="dashboard"><span data-icon="grid"></span>Dashboard</a>
+      <a href="#generate" data-page="generate"><span data-icon="document"></span>Generate Bonafide</a>
+      <a href="#students" data-page="students"><span data-icon="people"></span>Student Database</a>
+      <a href="#records" data-page="records"><span data-icon="records"></span>Certificate Records</a>
+      <div class="nav-divider"></div>
+      <a href="#add-data" data-page="add-data"><span data-icon="upload"></span>Add Student Data</a>
+    </nav>
+    <div class="sidebar-note"><span data-icon="shield"></span><strong>For college office use</strong><p>Bonafide certificates from authorized student records.</p></div>
+    <div class="sidebar-footer"><span class="operator-avatar" id="operator-avatar">OP</span><div><span id="operator-name"></span><small id="operator-role">Computer Operator</small></div></div>
+  </aside>
+  <button class="scrim" aria-label="Close navigation" hidden></button>
+  <div class="app-shell">
+    <header class="topbar"><div class="breadcrumb"><button class="icon-button menu-toggle" aria-label="Open navigation" aria-expanded="false" aria-controls="sidebar" data-icon="menu"></button><span>Workspace</span><span class="slash">/</span><strong id="breadcrumb-current">Dashboard</strong></div><button id="logout" class="button outline" type="button">LOGOUT</button></header>
+    <main id="main" tabindex="-1"></main>
+    <footer class="page-footer"><span>© <span id="year"></span> Durgawati Mahavidyalaya</span><span>Bonafide Certificate Management <span class="footer-dot">·</span> v0.2</span></footer>
+  </div>
+</body>
+</html>
