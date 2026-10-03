@@ -37,7 +37,7 @@ export function mountCertificate(main) {
     if (!saved.student) throw new Error('Student record unavailable. Restore the authorized record before printing.');
     stage.innerHTML = certificateTemplate(saved);
     await document.fonts.ready;
-    await Promise.all([...stage.querySelectorAll('img')].map(img => img.decode()));
+    await Promise.all([...stage.querySelectorAll('img')].map(img => img.decode().catch(() => {})));
     if (!fits()) throw new Error('The student details exceed one A4 page. Review the authorized record before printing.');
     if (!main.contains(stage)) return;
     certificate = saved;
