@@ -113,10 +113,18 @@ export function createApplication({ databasePath = process.env.DATA_FILE || file
           return response.end(bytes);
         }
         const certificateMatch = pathname.match(/^\/api\/certificates\/(\d+)$/);
-        if (certificateMatch && method === 'GET') {
-          const certificate = store.certificates.get(Number(certificateMatch[1]));
-          if (!certificate) throw fail('Certificate preview was not found.', 404);
-          return json(response, 200, { certificate });
+        if (certificateMatch) {
+          if (method === 'GET') {
+            const certificate = store.certificates.get(Number(certificateMatch[1]));
+            if (!certificate) throw fail('Certificate preview was not found.', 404);
+            return json(response, 200, { certificate });
+          }
+          if (method === 'PUT') {
+            const input = await body(request);
+            const certificate = store.certificates.update(Number(certificateMatch[1]), input);
+            if (!certificate) throw fail('Certificate preview was not found.', 404);
+            return json(response, 200, { certificate });
+          }
         }
         if (pathname === '/api/students' && method === 'GET') return json(response, 200, store.list({ registration: url.searchParams.get('registration') || '', name: url.searchParams.get('name') || '', page: Math.floor(Number(url.searchParams.get('page'))) || 1 }));
         if (pathname === '/api/students' && method === 'POST') {

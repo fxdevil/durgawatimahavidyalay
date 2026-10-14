@@ -267,6 +267,10 @@ export async function issueCertificate(registrationNumber) {
         const certs = allReq.result || [];
         const existing = certs.find(c => registrationKey(c.registrationNumber) === key);
         if (existing) {
+          if (academicYear && existing.academicYear !== academicYear) {
+            existing.academicYear = academicYear;
+            cStore.put(existing);
+          }
           return resolve({ certificate: { ...existing, student } });
         }
 
@@ -276,10 +280,12 @@ export async function issueCertificate(registrationNumber) {
         }
         const nextNum = maxNum + 1;
         const today = new Date().toISOString().slice(0, 10);
+        const savedYear = academicYear || (typeof localStorage !== 'undefined' ? localStorage.getItem('dm_academic_year') : null) || '2025-26';
         const newCert = {
           number: nextNum,
           registrationNumber: student.registrationNumber,
-          issueDate: today
+          issueDate: today,
+          academicYear: savedYear
         };
 
         const putReq = cStore.put(newCert);
@@ -289,6 +295,33 @@ export async function issueCertificate(registrationNumber) {
       allReq.onerror = () => reject(allReq.error);
     };
     sReq.onerror = () => reject(sReq.error);
+  });
+}
+
+export async function updateCertificate(number, updates) {
+  const db = await getDb();
+  const num = Number(number);
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(['certificates', 'students'], 'readwrite');
+    const certStore = tx.objectStore('certificates');
+    const req = certStore.get(num);
+
+    req.onsuccess = () => {
+      const cert = req.result;
+      if (!cert) return reject(new Error('Certificate not found.'));
+      const updated = { ...cert, ...updates };
+      const putReq = certStore.put(updated);
+      putReq.onsuccess = () => {
+        const studentReq = tx.objectStore('students').get(registrationKey(cert.registrationNumber));
+        studentReq.onsuccess = () => {
+          resolve({ certificate: { ...updated, student: studentReq.result || null } });
+        };
+        studentReq.onerror = () => reject(studentReq.error);
+      };
+      putReq.onerror = () => reject(putReq.error);
+    };
+    req.onerror = () => reject(req.error);
   });
 }
 

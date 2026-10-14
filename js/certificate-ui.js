@@ -24,20 +24,24 @@ export async function downloadCertificate(number) {
 export function mountCertificate(main) {
   const params = new URLSearchParams(location.hash.split('?')[1]);
   main.innerHTML = `<section class="page-heading certificate-controls"><div><div class="eyebrow">CERTIFICATE DESK</div><h1>Bonafide Certificate</h1><p>Search, review and issue a certificate from the current student record.</p></div><a href="#dashboard" class="button outline">Back</a></section>
-  <section class="panel student-panel certificate-controls"><form id="certificate-search" class="search-form"><label class="field">Registration Number<input name="registrationNumber" required maxlength="300" autocomplete="off" placeholder="Enter exact Registration Number"></label><button class="button primary" type="submit">Search</button><button type="button" id="issue-certificate" class="button primary" disabled>Generate / Preview</button><button type="button" id="print-certificate" class="button outline" disabled>PRINT CERTIFICATE</button><button type="button" id="download-certificate" class="button outline" disabled>DOWNLOAD PDF</button></form><div id="session-editor" class="session-editor" hidden><div class="session-editor-inner"><span class="session-editor-title">Session:</span><label class="field"><input id="session-input" name="session" placeholder="e.g. 2024-28" maxlength="50" autocomplete="off"></label><button type="button" id="update-session" class="button outline">Update Session</button><span class="help-text" id="session-notice"></span></div></div><p id="issue-status" class="help-text">Search a student to check issue status.</p><div id="certificate-status" role="status" class="feedback" hidden></div><p class="help-text">Print: A4 portrait, scale 100%, margins none; turn off browser headers and footers. Missing fields remain blank.</p></section><div id="certificate-preview" class="certificate-stage"></div>`;
+  <section class="panel student-panel certificate-controls"><form id="certificate-search" class="search-form"><label class="field">Registration Number<input name="registrationNumber" required maxlength="300" autocomplete="off" placeholder="Enter exact Registration Number"></label><button class="button primary" type="submit">Search</button><button type="button" id="issue-certificate" class="button primary" disabled>Generate / Preview</button><button type="button" id="print-certificate" class="button outline" disabled>PRINT CERTIFICATE</button><button type="button" id="download-certificate" class="button outline" disabled>DOWNLOAD PDF</button></form><div id="academic-year-editor" class="session-editor" hidden><div class="session-editor-inner"><span class="session-editor-title">Academic Year:</span><label class="field"><input id="academic-year-input" name="academicYear" placeholder="e.g. 2025-26" maxlength="50" autocomplete="off"></label><button type="button" id="update-academic-year" class="button outline">Update Academic Year</button><span class="help-text" id="academic-year-notice"></span></div></div><p id="issue-status" class="help-text">Search a student to check issue status.</p><div id="certificate-status" role="status" class="feedback" hidden></div><p class="help-text">Print: A4 portrait, scale 100%, margins none; turn off browser headers and footers. Missing fields remain blank.</p></section><div id="certificate-preview" class="certificate-stage"></div>`;
   const form = main.querySelector('form'), stage = main.querySelector('#certificate-preview'), feedback = main.querySelector('#certificate-status'), status = main.querySelector('#issue-status');
   const issue = main.querySelector('#issue-certificate'), print = main.querySelector('#print-certificate'), download = main.querySelector('#download-certificate');
-  const sessionEditor = main.querySelector('#session-editor'), sessionInput = main.querySelector('#session-input'), updateSession = main.querySelector('#update-session'), sessionNotice = main.querySelector('#session-notice');
+  const yearEditor = main.querySelector('#academic-year-editor'), yearInput = main.querySelector('#academic-year-input'), updateYear = main.querySelector('#update-academic-year'), yearNotice = main.querySelector('#academic-year-notice');
   let student, certificate, busy = false;
-  function updateSessionEditor() {
+  function getAcademicYear() {
+    return certificate?.academicYear || (typeof localStorage !== 'undefined' ? localStorage.getItem('dm_academic_year') : null) || '2025-26';
+  }
+  function updateYearEditor() {
     if (student) {
-      sessionEditor.hidden = false;
-      sessionInput.value = student.session || '';
-      sessionNotice.textContent = `Student: ${student.studentName} · Session: ${student.session || 'Not set'}`;
+      yearEditor.hidden = false;
+      const curYear = getAcademicYear();
+      yearInput.value = curYear;
+      yearNotice.textContent = `Student: ${student.studentName} · "DURING ACADEMIC YEAR": ${curYear}`;
     } else {
-      sessionEditor.hidden = true;
-      sessionInput.value = '';
-      sessionNotice.textContent = '';
+      yearEditor.hidden = true;
+      yearInput.value = '';
+      yearNotice.textContent = '';
     }
   }
   function message(text, error = false) { feedback.textContent = text; feedback.hidden = !text; feedback.className = `feedback ${error ? 'error' : 'success'}`; }
@@ -47,6 +51,9 @@ export function mountCertificate(main) {
     certificate = null;
     stage.innerHTML = '';
     if (!saved.student) throw new Error('Student record unavailable. Restore the authorized record before printing.');
+    if (!saved.academicYear) {
+      saved.academicYear = getAcademicYear();
+    }
     stage.innerHTML = certificateTemplate(saved);
     await document.fonts.ready;
     await Promise.all([...stage.querySelectorAll('img')].map(img => img.decode().catch(() => {})));
@@ -60,7 +67,7 @@ export function mountCertificate(main) {
     if (busy) return;
     busy = true;
     [...form.elements].forEach(el => el.disabled = true);
-    sessionInput.disabled = updateSession.disabled = true;
+    yearInput.disabled = updateYear.disabled = true;
     message('Please wait…');
     try { await action(); message('Ready. Verify student details before printing or downloading.'); }
     catch (error) {
@@ -71,51 +78,60 @@ export function mountCertificate(main) {
       busy = false;
       form.elements.registrationNumber.disabled = false;
       form.querySelector('[type="submit"]').disabled = false;
-      sessionInput.disabled = updateSession.disabled = !student;
+      yearInput.disabled = updateYear.disabled = !student;
       issue.disabled = !student || !!certificate;
       print.disabled = download.disabled = !certificate || !fits();
     }
   }
-  form.elements.registrationNumber.addEventListener('input', () => { student = certificate = null; stage.innerHTML = ''; issue.disabled = print.disabled = download.disabled = true; status.textContent = 'Search to check issue status.'; message(''); updateSessionEditor(); });
+  form.elements.registrationNumber.addEventListener('input', () => { student = certificate = null; stage.innerHTML = ''; issue.disabled = print.disabled = download.disabled = true; status.textContent = 'Search to check issue status.'; message(''); updateYearEditor(); });
   form.addEventListener('submit', event => { event.preventDefault(); run(async () => {
-    certificate = student = null; stage.innerHTML = ''; updateSessionEditor();
+    certificate = student = null; stage.innerHTML = ''; updateYearEditor();
     status.textContent = 'Checking issue status…';
     const registration = form.elements.registrationNumber.value.trim();
     try { student = (await api('/api/students/' + encodeURIComponent(registration))).student; }
-    catch (error) { status.textContent = 'No certificate loaded.'; updateSessionEditor(); throw error; }
+    catch (error) { status.textContent = 'No certificate loaded.'; updateYearEditor(); throw error; }
     const existing = (await api('/api/certificates/status?registration=' + encodeURIComponent(registration))).certificate;
     if (existing) await show(existing);
     else { status.textContent = `Not Issued · ${student.studentName}. Click Generate / Preview to issue the first certificate.`; }
-    updateSessionEditor();
+    updateYearEditor();
   }); });
-  updateSession.addEventListener('click', () => run(async () => {
+  updateYear.addEventListener('click', () => run(async () => {
     if (!student) return;
-    const newSession = sessionInput.value.trim();
-    const updatedStudent = { ...student, session: newSession, version: student.version };
-    const id = student.id || student.registrationNumber;
-    const res = await api('/api/students/' + encodeURIComponent(id), {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updatedStudent)
-    });
-    student = res.student;
-    updateSessionEditor();
+    const newYear = yearInput.value.trim();
+    if (!newYear) throw new Error('Please enter an Academic Year (e.g. 2025-26).');
+    if (typeof localStorage !== 'undefined') localStorage.setItem('dm_academic_year', newYear);
     if (certificate) {
-      certificate.student = student;
+      const res = await api('/api/certificates/' + certificate.number, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ academicYear: newYear })
+      });
+      certificate = res.certificate || { ...certificate, academicYear: newYear };
       await show(certificate);
     }
-    message(`Session updated to "${student.session || 'blank'}".`);
+    updateYearEditor();
+    message(`Academic Year updated to "${newYear}".`);
   }));
-  sessionInput.addEventListener('keydown', event => {
+  yearInput.addEventListener('keydown', event => {
     if (event.key === 'Enter') {
       event.preventDefault();
-      updateSession.click();
+      updateYear.click();
     }
   });
   issue.addEventListener('click', () => run(async () => {
-    const result = await api('/api/certificates/preview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ registrationNumber: student.registrationNumber, studentVersion: student.version }) });
+    const academicYear = yearInput.value.trim() || getAcademicYear();
+    if (typeof localStorage !== 'undefined') localStorage.setItem('dm_academic_year', academicYear);
+    const result = await api('/api/certificates/preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        registrationNumber: student.registrationNumber,
+        studentVersion: student.version,
+        academicYear
+      })
+    });
     await show(result.certificate);
-    updateSessionEditor();
+    updateYearEditor();
   }));
   print.addEventListener('click', () => run(async () => { await show((await api('/api/certificates/' + certificate.number)).certificate); window.print(); }));
   download.addEventListener('click', () => run(async () => { await show((await api('/api/certificates/' + certificate.number)).certificate); await downloadCertificate(certificate.number); }));
@@ -123,7 +139,7 @@ export function mountCertificate(main) {
     await show((await api('/api/certificates/' + params.get('certificate'))).certificate);
     student = certificate.student;
     form.elements.registrationNumber.value = student.registrationNumber;
-    updateSessionEditor();
+    updateYearEditor();
     if (params.get('action') === 'print') window.print();
     if (params.get('action') === 'download') await downloadCertificate(certificate.number);
   });

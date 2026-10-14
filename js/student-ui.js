@@ -52,13 +52,19 @@ export async function api(url, options = {}) {
     }
     if (pathname === '/api/certificates/preview' && method === 'POST') {
       const body = typeof options.body === 'string' ? JSON.parse(options.body) : options.body || {};
-      return await db.issueCertificate(body.registrationNumber);
+      return await db.issueCertificate(body.registrationNumber, body.academicYear);
     }
-    if (pathname.match(/^\/api\/certificates\/(\d+)$/) && method === 'GET') {
+    if (pathname.match(/^\/api\/certificates\/(\d+)$/)) {
       const num = Number(pathname.split('/').pop());
-      const certificate = await db.getCertificate(num);
-      if (!certificate) throw new Error('Certificate preview was not found.');
-      return { certificate };
+      if (method === 'GET') {
+        const certificate = await db.getCertificate(num);
+        if (!certificate) throw new Error('Certificate preview was not found.');
+        return { certificate };
+      }
+      if (method === 'PUT') {
+        const body = typeof options.body === 'string' ? JSON.parse(options.body) : options.body || {};
+        return await db.updateCertificate(num, body);
+      }
     }
   }
 
