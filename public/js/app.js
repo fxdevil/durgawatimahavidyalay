@@ -13,6 +13,7 @@ import { mountCertificateRecords } from './certificate-records-ui.js';
 import { icon } from './icons.js';
 import { mountAddStudents, mountDatabase, api } from './student-ui.js';
 import { mountCertificate } from './certificate-ui.js';
+import { setActiveAcademicYear, getActiveAcademicYear } from './client-db.js';
 const pages = { dashboard: 'Dashboard', generate: 'Generate Bonafide', students: 'Student Database', records: 'Certificate Records', 'add-data': 'Add Student Data' };
 const main = document.querySelector('main');
 const mobileLayout = window.matchMedia('(max-width: 850px)');
@@ -22,6 +23,22 @@ function syncNavigation() {
 const dashboard = () => `
   <section class="page-heading"><div><div class="eyebrow">ADMINISTRATIVE OVERVIEW</div><h1>A simpler way to certify.</h1><p>Manage student records and bonafide certificates in one place.</p></div><div class="date-label"><img class="date-label-logo" src="./images/college-logo.png" alt=""><span>Office dashboard</span></div></section>
   <div class="setup-notice">${icon('info')}<p><strong>Loading workspace.</strong> Checking stored records…</p><span class="badge neutral">Loading</span></div>
+  <section class="panel year-settings-panel" aria-labelledby="year-settings-title" style="margin: 18px 0; padding: 18px 22px; background: #f6faf7; border: 1px solid #d4e2d8; border-radius: 10px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+      <div>
+        <span class="eyebrow" style="color:#2a5749; font-weight:700;">BONAFIDE SETTINGS</span>
+        <h2 id="year-settings-title" style="margin:4px 0 6px; font-size:18px; color:#18362d;">Active Course / Academic Year</h2>
+        <p class="help-text" style="margin:0; font-size:13px; color:#496155;">Certificates will be issued with: <strong>DURING ACADEMIC YEAR <span id="dash-year-display">2025-26</span></strong>. This stays saved permanently until updated.</p>
+      </div>
+      <form id="dash-year-form" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:0;">
+        <label class="field" style="margin:0; min-width:140px;">
+          <input id="dash-year-input" name="academicYear" placeholder="e.g. 2025-26" maxlength="50" required autocomplete="off" style="padding:8px 12px; font-weight:600; font-size:14px;">
+        </label>
+        <button type="submit" class="button primary">Update Course Year</button>
+      </form>
+    </div>
+    <div id="dash-year-feedback" class="feedback" hidden style="margin-top:12px;"></div>
+  </section>
   <section class="stats-grid" aria-label="Workspace overview">
     ${stat('people', 'Student records', 'Loading records…', 'sage')}
     ${stat('document', 'Certificates generated', 'Loading issued certificates…', 'sand')}
@@ -56,6 +73,26 @@ function render() {
   else if (page === 'records') mountCertificateRecords(main);
   else main.innerHTML = dashboard();
   if (page === 'dashboard') {
+    const yearDisplay = main.querySelector('#dash-year-display');
+    const yearInput = main.querySelector('#dash-year-input');
+    const yearForm = main.querySelector('#dash-year-form');
+    const yearFeedback = main.querySelector('#dash-year-feedback');
+    if (yearDisplay && yearInput && yearForm) {
+      const curYear = getActiveAcademicYear();
+      yearDisplay.textContent = curYear;
+      yearInput.value = curYear;
+      yearForm.addEventListener('submit', async event => {
+        event.preventDefault();
+        const newYear = yearInput.value.trim();
+        if (!newYear) return;
+        await setActiveAcademicYear(newYear);
+        yearDisplay.textContent = newYear;
+        yearFeedback.textContent = `Active Course / Academic Year set to "${newYear}" and saved permanently.`;
+        yearFeedback.className = 'feedback success';
+        yearFeedback.hidden = false;
+        setTimeout(() => { if (main.contains(yearFeedback)) yearFeedback.hidden = true; }, 4000);
+      });
+    }
     const notice = main.querySelector('.setup-notice p');
     main.querySelector('.hero-note').textContent = 'Search · Issue · Print or download PDF';
     api('/api/certificates').then(({total}) => {

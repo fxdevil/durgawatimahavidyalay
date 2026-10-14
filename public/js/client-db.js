@@ -248,53 +248,88 @@ export async function listCertificates({ search = '', page = 1, pageSize = 50 } 
   });
 }
 
-export async function issueCertificate(registrationNumber) {
+export function getActiveAcademicYear() {
+  if (typeof localStorage !== 'undefined') {
+    return localStorage.getItem('dm_academic_year') || '2025-26';
+  }
+  return '2025-26';
+}
+
+export async function setActiveAcademicYear(year) {
+  const cleanYear = String(year || '2025-26').trim();
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('dm_academic_year', cleanYear);
+  }
+  try {
+    const db = await getDb();
+    const tx = db.transaction('metadata', 'readwrite');
+    tx.objectStore('metadata').put({ key: 'academicYear', value: cleanYear });
+  } catch {}
+  return cleanYear;
+}
+
+export async function issueCertificate(registrationNumber, academicYear) {
   const db = await getDb();
   const key = registrationKey(registrationNumber);
 
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(['certificates', 'students'], 'readwrite');
-    const sReq = tx.objectStore('students').get(key);
+    try {
+      const tx = db.transaction(['certificates', 'students'], 'readwrite');
+      const sReq = tx.objectStore('students').get(key);
 
-    sReq.onsuccess = () => {
-      const student = sReq.result;
-      if (!student) return reject(new Error('Student record was not found.'));
+      sReq.onsuccess = () => {
+        try {
+          const student = sReq.result;
+          if (!student) return reject(new Error('Student record was not found.'));
 
-      const cStore = tx.objectStore('certificates');
-      const allReq = cStore.getAll();
+          const cStore = tx.objectStore('certificates');
+          const allReq = cStore.getAll();
 
-      allReq.onsuccess = () => {
-        const certs = allReq.result || [];
-        const existing = certs.find(c => registrationKey(c.registrationNumber) === key);
-        if (existing) {
-          if (academicYear && existing.academicYear !== academicYear) {
-            existing.academicYear = academicYear;
-            cStore.put(existing);
-          }
-          return resolve({ certificate: { ...existing, student } });
+          allReq.onsuccess = () => {
+            try {
+              const certs = allReq.result || [];
+              const existing = certs.find(c => registrationKey(c.registrationNumber) === key);
+              const activeYear = academicYear || getActiveAcademicYear();
+              if (existing) {
+                if (activeYear && existing.academicYear !== activeYear) {
+                  existing.academicYear = activeYear;
+                  cStore.put(existing);
+                } else if (!existing.academicYear) {
+                  existing.academicYear = activeYear;
+                  cStore.put(existing);
+                }
+                return resolve({ certificate: { ...existing, student } });
+              }
+
+              let maxNum = 2; // Default starting point before #3
+              for (const c of certs) {
+                if (c.number > maxNum) maxNum = c.number;
+              }
+              const nextNum = maxNum + 1;
+              const today = new Date().toISOString().slice(0, 10);
+              const newCert = {
+                number: nextNum,
+                registrationNumber: student.registrationNumber,
+                issueDate: today,
+                academicYear: activeYear
+              };
+
+              const putReq = cStore.put(newCert);
+              putReq.onsuccess = () => resolve({ certificate: { ...newCert, student } });
+              putReq.onerror = () => reject(putReq.error);
+            } catch (err) {
+              reject(err);
+            }
+          };
+          allReq.onerror = () => reject(allReq.error);
+        } catch (err) {
+          reject(err);
         }
-
-        let maxNum = 2; // Default starting point before #3
-        for (const c of certs) {
-          if (c.number > maxNum) maxNum = c.number;
-        }
-        const nextNum = maxNum + 1;
-        const today = new Date().toISOString().slice(0, 10);
-        const savedYear = academicYear || (typeof localStorage !== 'undefined' ? localStorage.getItem('dm_academic_year') : null) || '2025-26';
-        const newCert = {
-          number: nextNum,
-          registrationNumber: student.registrationNumber,
-          issueDate: today,
-          academicYear: savedYear
-        };
-
-        const putReq = cStore.put(newCert);
-        putReq.onsuccess = () => resolve({ certificate: { ...newCert, student } });
-        putReq.onerror = () => reject(putReq.error);
       };
-      allReq.onerror = () => reject(allReq.error);
-    };
-    sReq.onerror = () => reject(sReq.error);
+      sReq.onerror = () => reject(sReq.error);
+    } catch (err) {
+      reject(err);
+    }
   });
 }
 
